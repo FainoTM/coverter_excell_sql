@@ -5,69 +5,55 @@ function UploadForm() {
   const inputRef = useRef(null)
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [dragActive, setDragActive] = useState(false)
-  const [previewText, setPreviewText] = useState('-- O preview do arquivo aparecerá aqui.')
-  const [fileMeta, setFileMeta] = useState(null)
+  const [previewText, setPreviewText] = useState('-- O preview do SQL aparecerá aqui.')
 
-  const buildLocalPreview = async (selectedFile) => {
+  const fetchPreview = async (selectedFile) => {
     if (!selectedFile) {
-      setPreviewText('-- O preview do arquivo aparecerá aqui.')
-      setFileMeta(null)
+      setPreviewText('-- O preview do SQL aparecerá aqui.')
       return
     }
 
-    const extension = selectedFile.name.split('.').pop()?.toLowerCase() || ''
+    const formData = new FormData()
+    formData.append('file', selectedFile)
 
-    setFileMeta({
-      name: selectedFile.name,
-      size: `${(selectedFile.size / 1024).toFixed(1)} KB`,
-      type: extension.toUpperCase(),
-    })
+    try {
+      setPreviewLoading(true)
+      setError('')
 
-    if (extension === 'csv') {
-      try {
-        const text = await selectedFile.text()
-        const lines = text.split(/\r?\n/).slice(0, 8).join('\n')
-        setPreviewText(lines || '-- CSV vazio.')
-      } catch {
-        setPreviewText('-- Não foi possível ler o CSV localmente.')
+      const response = await axios.post(
+        'http://127.0.0.1:8000/api/preview-file/',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      )
+
+      const preview = response.data.preview || '-- Nenhum preview disponível.'
+      setPreviewText(preview)
+    } catch (err) {
+      let message = '-- Não foi possível gerar preview.'
+
+      if (err.response?.data?.error) {
+        message = `-- ${err.response.data.error}`
       }
-      return
+
+      setPreviewText(message)
+    } finally {
+      setPreviewLoading(false)
     }
-
-    if (extension === 'xlsx' || extension === 'xls') {
-      setPreviewText(
-`-- Arquivo Excel selecionado
--- Nome: ${selectedFile.name}
--- Tipo: ${extension.toUpperCase()}
--- Tamanho: ${(selectedFile.size / 1024).toFixed(1)} KB
-
--- O arquivo será enviado ao backend para conversão em SQL.`
-      )
-      return
-    }
-
-    if (extension === 'zip') {
-      setPreviewText(
-`-- Arquivo ZIP selecionado
--- Nome: ${selectedFile.name}
-
--- Preview local não disponível para ZIP.
--- O conteúdo será processado pelo backend.`
-      )
-      return
-    }
-
-    setPreviewText('-- Formato não suportado para preview.')
   }
 
   const handleSelectedFile = async (selectedFile) => {
     setFile(selectedFile || null)
     setError('')
     setSuccess('')
-    await buildLocalPreview(selectedFile)
+    await fetchPreview(selectedFile)
   }
 
   const handleChange = async (e) => {
@@ -214,13 +200,8 @@ function UploadForm() {
 
           <section className="preview-card">
             <div className="preview-header">
-              <h3>Preview</h3>
-              {fileMeta && (
-                <div className="file-meta">
-                  <span>{fileMeta.type}</span>
-                  <span>{fileMeta.size}</span>
-                </div>
-              )}
+              <h3>Preview do SQL</h3>
+              {previewLoading && <span className="preview-loading">Gerando preview...</span>}
             </div>
 
             <div className="preview-window">

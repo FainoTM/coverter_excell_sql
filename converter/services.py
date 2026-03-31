@@ -241,6 +241,37 @@ class FirebirdMigrationGenerator:
         lines.append("COMMIT;")
         return lines
 
+    def generate_strings(self, input_path: str) -> tuple[str, str]:
+        base = os.path.splitext(os.path.basename(input_path))[0]
+
+        schema_lines = self._build_schema_header(base)
+        data_lines = self._build_data_header(base)
+
+        tables = self._load_input_tables(input_path)
+
+        for table_name, df_sample, df_full in tables:
+            schema_lines.extend(self._generate_create_table(table_name, df_sample))
+            data_lines.extend(self._generate_inserts(table_name, df_full))
+
+        data_lines.append("SET TERM ; ^")
+
+        schema_text = "\n".join(schema_lines)
+        data_text = "\n".join(data_lines)
+
+        return schema_text, data_text
+
+    def generate_preview(self, input_path: str, max_chars: int = 4000) -> dict:
+        schema_text, data_text = self.generate_strings(input_path)
+
+        full_text = schema_text + "\n\n" + data_text
+
+        return {
+            "schema_preview": schema_text[:max_chars],
+            "data_preview": data_text[:max_chars],
+            "combined_preview": full_text[:max_chars],
+            "truncated": len(full_text) > max_chars,
+        }
+
     @staticmethod
     def _write_file(file_path: str, lines: list[str], encoding: str) -> None:
         with open(file_path, "w", encoding=encoding) as f:

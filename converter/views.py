@@ -11,7 +11,58 @@ from .services import FirebirdMigrationGenerator
 
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
-def upload_excel(request):
+def preview_file(request):
+    arquivo = request.FILES.get('file')
+
+    if not arquivo:
+        return JsonResponse({'error': 'Nenhum arquivo enviado.'}, status=400)
+
+    nome = arquivo.name.lower()
+    extensoes_permitidas = ('.zip', '.csv', '.xlsx', '.xls')
+
+    if not nome.endswith(extensoes_permitidas):
+        return JsonResponse(
+            {'error': 'Envie um arquivo válido: .zip, .csv, .xlsx ou .xls'},
+            status=400
+        )
+
+    temp_input_path = None
+
+    try:
+        sufixo = os.path.splitext(arquivo.name)[1]
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=sufixo) as temp_file:
+            for chunk in arquivo.chunks():
+                temp_file.write(chunk)
+            temp_input_path = temp_file.name
+
+        generator = FirebirdMigrationGenerator()
+        preview_data = generator.generate_preview(temp_input_path, max_chars=3500)
+
+        return JsonResponse({
+            'file_name': arquivo.name,
+            'preview': preview_data['combined_preview'],
+            'schema_preview': preview_data['schema_preview'],
+            'data_preview': preview_data['data_preview'],
+            'truncated': preview_data['truncated'],
+        })
+
+    except Exception as e:
+        return JsonResponse(
+            {'error': f'Erro ao gerar preview: {str(e)}'},
+            status=500
+        )
+
+    finally:
+        if temp_input_path and os.path.exists(temp_input_path):
+            try:
+                os.remove(temp_input_path)
+            except Exception:
+                pass
+
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def upload_file(request):
     arquivo = request.FILES.get('file')
 
     if not arquivo:
@@ -32,18 +83,15 @@ def upload_excel(request):
     output_zip_path = None
 
     try:
-        # salva o arquivo recebido temporariamente
         sufixo = os.path.splitext(arquivo.name)[1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=sufixo) as temp_file:
             for chunk in arquivo.chunks():
                 temp_file.write(chunk)
             temp_input_path = temp_file.name
 
-        # chama o service OOP
         generator = FirebirdMigrationGenerator()
         schema_file, data_file = generator.generate(temp_input_path)
 
-        # empacota os dois arquivos SQL em um zip
         with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_zip:
             output_zip_path = temp_zip.name
 
@@ -53,7 +101,7 @@ def upload_excel(request):
 
         with open(output_zip_path, 'rb') as f:
             response = HttpResponse(f.read(), content_type='application/zip')
-            response['Content-Disposition'] = 'attachment; filename="sql_gerado.zip"'
+            response['Content-Disposition'] = 'attachment; filename=\"sql_gerado.zip\"'
             return response
 
     except Exception as e:

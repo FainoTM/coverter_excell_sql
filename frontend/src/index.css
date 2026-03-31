@@ -236,6 +236,16 @@ input {
   background: #82b38a;
 }
 
+.preview-window {
+  background: #252840;
+  border: 2px solid rgba(234, 223, 190, 0.85);
+  border-radius: 16px;
+  padding: 16px;
+  height: 420px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
 .preview-window pre {
   margin: 0;
   white-space: pre-wrap;
@@ -243,6 +253,25 @@ input {
   line-height: 1.7;
   color: #f3ead8;
   font-size: 0.95rem;
+}
+
+.preview-window::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.preview-window::-webkit-scrollbar-track {
+  background: #1c1f33;
+  border-radius: 10px;
+}
+
+.preview-window::-webkit-scrollbar-thumb {
+  background: #8d7a57;
+  border-radius: 10px;
+}
+
+.preview-window::-webkit-scrollbar-thumb:hover {
+  background: #b29263;
 }
 
 .message {
@@ -302,4 +331,9 @@ input {
   .secondary-btn {
     width: 100%;
   }
+}
+
+.preview-loading {
+  color: #ffdcae;
+  font-size: 0.85rem;
 }
